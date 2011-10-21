@@ -27,7 +27,7 @@ from djangosanetesting.utils import (
     get_live_server_path, test_database_exists,
     DEFAULT_LIVE_SERVER_ADDRESS, DEFAULT_LIVE_SERVER_PORT,
 )
-TEST_CASE_CLASSES = (djangosanetesting.cases.SaneTestCase, unittest.case.TestCase)
+TEST_CASE_CLASSES = (djangosanetesting.cases.SaneTestCase, unittest.TestCase)
 
 __all__ = ("CherryPyLiveServerPlugin", "DjangoLiveServerPlugin", "DjangoPlugin", "SeleniumPlugin", "SaneTestSelectionPlugin", "ResultPlugin")
 
