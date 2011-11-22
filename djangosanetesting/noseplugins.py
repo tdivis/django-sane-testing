@@ -51,6 +51,8 @@ def get_test_case_class(nose_test):
         return nose_test.test.__class__
 
 def get_test_case_method(nose_test):
+    if not hasattr(nose_test, 'test'): # not test method/functoin, probably test module or test class (from startContext)
+        return None
     if isinstance(nose_test.test, (nose.case.MethodTestCase, nose.case.FunctionTestCase)):
         return nose_test.test.test
     else:
