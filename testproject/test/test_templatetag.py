@@ -1,5 +1,6 @@
 from djangosanetesting.cases import TemplateTagTestCase
 
+
 class TestTagLib(TemplateTagTestCase):
     preload = ('dsttesttags',)
 
@@ -11,12 +12,14 @@ class TestTagLib(TemplateTagTestCase):
         self.assert_equal(self.render_template('{% table x_y z %}'),
             u'<table><tr><td>x</td><td>y</td></tr><tr><td>z</td></tr></table>')
 
+
 class TestFilterLib(TemplateTagTestCase):
     preload = ('dsttestfilters',)
 
     def test_filter_output(self):
         self.assert_equal(self.render_template('{{ a|ihatebs }}', a='abc'),
                          u'aac')
+
 
 class TestBoth(TestTagLib, TestFilterLib):
     preload = ('dsttesttags', 'dsttestfilters')
@@ -40,6 +43,7 @@ class TestBoth(TestTagLib, TestFilterLib):
     def test_preload_filters_only(self):
         self.preload = ('dsttestfilters',)
         self.assert_raises(self.TemplateSyntaxError, self._call_test_render)
+
 
 class TestMisc(TemplateTagTestCase):
     def test_context(self):

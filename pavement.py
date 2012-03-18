@@ -7,13 +7,13 @@ VERSION = '0.5.11'
 name = 'djangosanetesting'
 
 setup(
-    name = name,
-    version = VERSION,
-    url = 'http://devel.almad.net/trac/django-sane-testing/',
-    author = 'Lukas Linhart',
-    author_email = 'bugs@almad.net',
-    description = 'Integrate Django with nose, Selenium, Twill and more. ''',
-    long_description = u'''
+    name=name,
+    version=VERSION,
+    url='http://devel.almad.net/trac/django-sane-testing/',
+    author='Lukas Linhart',
+    author_email='bugs@almad.net',
+    description='Integrate Django with nose, Selenium, Twill and more. ''',
+    long_description=u'''
 ======================
 Django: Sane testing
 ======================
@@ -26,8 +26,8 @@ Selenium has also been made super easy - just start --with-selenium, inherit fro
 
 Package is documented - see docs/ or http://readthedocs.org/projects/Almad/django-sane-testing/docs/index.html .
 ''',
-    packages = ['djangosanetesting', 'djangosanetesting.selenium'],
-    requires = ['Django (>=1.1)', 'nose (>=0.10)'],
+    packages=['djangosanetesting', 'djangosanetesting.selenium'],
+    requires=['Django (>=1.1)', 'nose (>=0.10)'],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
@@ -38,7 +38,7 @@ Package is documented - see docs/ or http://readthedocs.org/projects/Almad/djang
         "Topic :: Software Development :: Testing",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
-    entry_points = {
+    entry_points={
         'nose.plugins.0.10': [
             'djangoliveserver = %s.noseplugins:DjangoLiveServerPlugin' % name,
             'cherrypyliveserver = %s.noseplugins:CherryPyLiveServerPlugin' % name,
@@ -71,14 +71,14 @@ def unit(args, nose_run_kwargs=None):
     """ Run unittests """
     import os, sys
     from os.path import join, dirname, abspath
-    
+
     test_project_module = "testproject"
-    
+
     sys.path.insert(0, abspath(join(dirname(__file__), test_project_module)))
     sys.path.insert(0, abspath(dirname(__file__)))
-    
+
     os.environ['DJANGO_SETTINGS_MODULE'] = "%s.settings" % test_project_module
-    
+
     import nose
 
     os.chdir(test_project_module)
@@ -88,8 +88,8 @@ def unit(args, nose_run_kwargs=None):
     nose_run_kwargs = nose_run_kwargs or {}
 
     nose.run_exit(
-        argv = ["nosetests"] + argv,
-        defaultTest = test_project_module,
+        argv=["nosetests"] + argv,
+        defaultTest=test_project_module,
         **nose_run_kwargs
     )
 

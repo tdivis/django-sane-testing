@@ -21,7 +21,7 @@ def extract_django_traceback(twill=None, http_error=None, lines=None):
         http_error = urllib2.HTTPError(url=twill.get_url(), code=500, msg=None, hdrs=None, fp=None)
         if not lines:
             lines = twill.result.get_page().split("\n")
-    
+
     lines = lines or []
 
     for one in lines:
@@ -53,7 +53,7 @@ def is_test_database():
     if settings.TEST_DATABASE_NAME:
         test_database_name = settings.TEST_DATABASE_NAME
     else:
-        from django.db import TEST_DATABASE_PREFIX
+        from django.db.backends.creation import TEST_DATABASE_PREFIX
         test_database_name = TEST_DATABASE_PREFIX + settings.DATABASE_NAME
 
     return settings.DATABASE_NAME == test_database_name
@@ -64,7 +64,7 @@ def get_databases():
         from django.db import connections
     except ImportError:
         from django.conf import settings
-        from django.db import connection
+        from django.db import connection, DEFAULT_DB_ALIAS
 
         if settings.TEST_DATABASE_NAME:
             connection['TEST_NAME'] = settings.TEST_DATABASE_NAME
@@ -88,7 +88,7 @@ def test_databases_exist():
             connection.cursor()
 
         return True
-    except DatabaseError, err:
+    except DatabaseError:
         return False
 
 def get_live_server_path():
@@ -113,7 +113,7 @@ def twill_patched_go(browser, original_go):
             uri = "%s%s" % (base, uri)
         response = original_go(uri, *args, **kwargs)
         if browser.result.get_http_code() == 500:
-            raise extract_django_traceback(twill=browser)
+            raise extract_django_traceback(twill=browser) # pylint: disable=E0702
         else:
             return response
     return twill_go_with_relative_paths
@@ -148,16 +148,16 @@ def twill_xpath_go(browser, original_go):
 
         response = original_go(result[0].get("href"))
         if browser.result.get_http_code() == 500:
-            raise extract_django_traceback(twill=browser)
+            raise extract_django_traceback(twill=browser) # pylint: disable=E0702
         else:
             return response
     return visit_with_xpath
 
 def mock_settings(settings_attribute, value):
     from django.conf import settings
-    
-    def wrapper(f):
-        @wraps(f)
+
+    def wrapper(func):
+        @wraps(func)
         def wrapped(*args, **kwargs):
             if not hasattr(settings, settings_attribute):
                 delete = True
@@ -168,7 +168,7 @@ def mock_settings(settings_attribute, value):
             setattr(settings, settings_attribute, value)
 
             try:
-                retval = f(*args, **kwargs)
+                retval = func(*args, **kwargs)
             finally:
                 if delete:
                     # could not delete directly as LazyObject does not implement
@@ -188,7 +188,7 @@ def get_server_handler():
     try:
         from django.contrib.staticfiles.handlers import StaticFilesHandler
         handler = StaticFilesHandler(handler)
-    except:
+    except Exception:
         pass
 
     return handler

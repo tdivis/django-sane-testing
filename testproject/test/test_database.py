@@ -1,11 +1,10 @@
-import urllib2
-
 from djangosanetesting.cases import DatabaseTestCase, DestructiveDatabaseTestCase, HttpTestCase
 from djangosanetesting.utils import mock_settings, get_live_server_path
 
 from testapp.models import ExampleModel
 
 import django
+
 
 class TestDatabaseRollbackCase(DatabaseTestCase):
     """
@@ -29,10 +28,11 @@ class TestDatabaseRollbackCase(DatabaseTestCase):
 
         # check we got stored properly
         self.assert_equals(2, len(ExampleModel.objects.all()))
-    
+
     def test_client_available(self):
         res = self.client.get('/testtwohundred/')
         self.assert_equals(200, res.status_code)
+
 
 class TestProperClashing(DatabaseTestCase):
     """
@@ -46,7 +46,7 @@ class TestProperClashing(DatabaseTestCase):
     This is antipattern and should not be used, but it's hard to test
     framework from within ;) Better solution would be greatly appreciated.  
     """
-    
+
     def test_aaa_commit_object(self):
         ExampleModel.objects.create(name="test1")
         self.transaction.commit()
@@ -68,6 +68,7 @@ class TestFixturesLoadedProperly(HttpTestCase):
 
     def test_available_in_another_thread(self):
         self.assertEquals(u'OKidoki', self.urlopen('%sassert_two_example_models/' % get_live_server_path()).read())
+
 
 class TestDjangoOneTwoMultipleDatabases(DestructiveDatabaseTestCase):
     """

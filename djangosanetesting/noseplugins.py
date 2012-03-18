@@ -23,17 +23,17 @@ import djangosanetesting
 from djangosanetesting import MULTIDB_SUPPORT, DEFAULT_DB_ALIAS
 from djangosanetesting.cache import flush_django_cache
 
-#from djagnosanetesting.cache import flush_django_cache
-from djangosanetesting.selenium.driver import selenium
 from djangosanetesting.utils import (
-    get_databases, get_live_server_path, test_databases_exist,
+    get_databases, get_live_server_path,
     get_server_handler,
     DEFAULT_LIVE_SERVER_ADDRESS, DEFAULT_LIVE_SERVER_PORT,
 )
+
+
 TEST_CASE_CLASSES = (djangosanetesting.cases.SaneTestCase, unittest.TestCase)
 
-__all__ = ("CherryPyLiveServerPlugin", "DjangoLiveServerPlugin", "DjangoPlugin", "SeleniumPlugin", "SaneTestSelectionPlugin", "ResultPlugin")
-
+__all__ = ("CherryPyLiveServerPlugin", "DjangoLiveServerPlugin", "DjangoPlugin", "SeleniumPlugin",
+           "SaneTestSelectionPlugin", "ResultPlugin")
 
 
 def flush_cache(test=None):
@@ -54,7 +54,7 @@ def is_test_case_class(nose_test):
 
 def get_test_case_class(nose_test):
     if ismodule(nose_test) or is_test_case_class(nose_test):
-        return nose_test 
+        return nose_test
     if isinstance(nose_test.test, nose.case.MethodTestCase):
         return nose_test.test.test.im_class
     else:
@@ -70,14 +70,13 @@ def get_test_case_method(nose_test):
 
 def get_test_case_instance(nose_test):
     if ismodule(nose_test) or is_test_case_class(nose_test):
-        return nose_test 
+        return nose_test
     if getattr(nose_test, 'test') and not isinstance(nose_test.test, (nose.case.FunctionTestCase)):
         return get_test_case_method(nose_test).im_self
 
 def hasattr_test(nose_test, attr_name):
     ''' hasattr from test method or test_case.
     '''
-
     if nose_test is None:
         return False
     elif ismodule(nose_test) or is_test_case_class(nose_test):
@@ -87,7 +86,7 @@ def hasattr_test(nose_test, attr_name):
     else:
         return False
 
-def getattr_test(nose_test, attr_name, default = False):
+def getattr_test(nose_test, attr_name, default=False):
     ''' Get attribute from test method, if not found then form it's test_case instance
         (meaning that test method have higher priority). If not found even
         in test_case then return default.
@@ -102,7 +101,7 @@ def enable_test(test_case, plugin_attribute):
     if not getattr(test_case, plugin_attribute, False):
         setattr(test_case, plugin_attribute, True)
 
-def flush_database(test_case, database=DEFAULT_DB_ALIAS):
+def flush_database(test_case, database=DEFAULT_DB_ALIAS): # pylint: disable=W0613
     call_command('flush', verbosity=0, interactive=False, database=database)
 
 
@@ -117,10 +116,11 @@ def flush_database(test_case, database=DEFAULT_DB_ALIAS):
 class StoppableWSGIServer(ThreadingMixIn, HTTPServer):
     """WSGIServer with short timeout, so that server thread can stop this server."""
     application = None
-    
+
     def __init__(self, server_address, RequestHandlerClass=None):
-        HTTPServer.__init__(self, server_address, RequestHandlerClass) 
-    
+        HTTPServer.__init__(self, server_address, RequestHandlerClass)
+        self.base_environ = None
+
     def server_bind(self):
         """ Bind server to socket. Overrided to store server name & set timeout"""
         try:
@@ -148,14 +148,14 @@ class StoppableWSGIServer(ThreadingMixIn, HTTPServer):
         env['SERVER_NAME'] = self.server_name
         env['GATEWAY_INTERFACE'] = 'CGI/1.1'
         env['SERVER_PORT'] = str(self.server_port)
-        env['REMOTE_HOST']=''
-        env['CONTENT_LENGTH']=''
+        env['REMOTE_HOST'] = ''
+        env['CONTENT_LENGTH'] = ''
         env['SCRIPT_NAME'] = ''
 
     def get_app(self):
         return self.application
 
-    def set_app(self,application):
+    def set_app(self, application):
         self.application = application
 
 
@@ -196,17 +196,17 @@ class TestServerThread(threading.Thread):
 
 class AbstractLiveServerPlugin(Plugin):
     def __init__(self):
-        Plugin.__init__(self)
+        super(AbstractLiveServerPlugin, self).__init__()
         self.server_started = False
         self.server_thread = None
 
-    def options(self, parser, env=os.environ):
+    def options(self, parser, env=os.environ): # pylint: disable=W0102
         Plugin.options(self, parser, env)
 
     def configure(self, options, config):
         Plugin.configure(self, options, config)
 
-    def start_server(self):
+    def start_server(self, address=None, port=None):
         raise NotImplementedError()
 
     def stop_server(self):
@@ -234,9 +234,9 @@ class AbstractLiveServerPlugin(Plugin):
                 port=int(getattr(settings, "LIVE_SERVER_PORT", DEFAULT_LIVE_SERVER_PORT))
             )
             self.server_started = True
-            
+
         enable_test(test_case, 'http_plugin_started')
-        
+
         # clear test client for test isolation
         if test_case_instance:
             test_case_instance.client = None
@@ -248,8 +248,8 @@ class AbstractLiveServerPlugin(Plugin):
             reset_browser()
             test_case_instance._twill = None
 
-    def finalize(self, result):
-        self.stop_test_server()
+    def finalize(self, result): # pylint: disable=W0613
+        self.stop_server()
 
 
 class DjangoLiveServerPlugin(AbstractLiveServerPlugin):
@@ -261,15 +261,15 @@ class DjangoLiveServerPlugin(AbstractLiveServerPlugin):
     """
     name = 'djangoliveserver'
     activation_parameter = '--with-djangoliveserver'
-    
+
     def start_server(self, address='0.0.0.0', port=8000):
         self.server_thread = TestServerThread(address, port)
         self.server_thread.start()
         self.server_thread.started.wait()
         if self.server_thread.error:
-            raise self.server_thread.error
-         
-    def stop_test_server(self):
+            raise self.server_thread.error # pylint: disable=E0702
+
+    def stop_server(self):
         if self.server_thread:
             self.server_thread.join()
         self.server_started = False
@@ -286,14 +286,19 @@ class CherryPyLiveServerPlugin(AbstractLiveServerPlugin):
     name = 'cherrypyliveserver'
     activation_parameter = '--with-cherrypyliveserver'
 
+    def __init__(self):
+        super(CherryPyLiveServerPlugin, self).__init__()
+        self.httpd = None
+        self.httpd_thread = None
+
     def start_server(self, address='0.0.0.0', port=8000):
         handler = get_server_handler()
- 
+
         def application(environ, start_response):
             environ['PATH_INFO'] = environ['SCRIPT_NAME'] + environ['PATH_INFO']
             return handler(environ, start_response)
-        
-        from cherrypy.wsgiserver import CherryPyWSGIServer
+
+        from cherrypy.wsgiserver import CherryPyWSGIServer # @UnresolvedImport pylint: disable=F0401
         from threading import Thread
         self.httpd = CherryPyWSGIServer((address, port), application, server_name='django-test-http')
         self.httpd_thread = Thread(target=self.httpd.start)
@@ -301,8 +306,8 @@ class CherryPyLiveServerPlugin(AbstractLiveServerPlugin):
         #FIXME: This could be avoided by passing self to thread class starting django
         # and waiting for Event lock
         sleep(.5)
-   
-    def stop_test_server(self):
+
+    def stop_server(self):
         if self.server_started:
             self.httpd.stop()
             self.server_started = False
@@ -316,6 +321,12 @@ class DjangoPlugin(Plugin):
     name = 'django'
     env_opt = 'DST_PERSIST_TEST_DATABASE'
 
+    def __init__(self):
+        super(DjangoPlugin, self).__init__()
+        self.persist_test_database = None
+        self.test_database_created = False
+        self.old_config = None
+
     def startContext(self, context):
         if ismodule(context) or is_test_case_class(context):
             if ismodule(context):
@@ -327,7 +338,7 @@ class DjangoPlugin(Plugin):
                 #      user selected only one unitTestCase), database should not be initialized.
                 #      So it would be best if db is initialized when first test case needing 
                 #      database is run. 
-                
+
                 # create test database if not already created
                 if not self.test_database_created:
                     self._create_test_databases()
@@ -361,9 +372,9 @@ class DjangoPlugin(Plugin):
                     for db in self._get_tests_databases(getattr(context, 'multidb', False)):
                         getattr(settings, "TEST_DATABASE_FLUSH_COMMAND", flush_database)(self, database=db)
 
-    def options(self, parser, env=os.environ):
+    def options(self, parser, env=os.environ): # pylint: disable=W0102
         Plugin.options(self, parser, env)
-        
+
         parser.add_option(
             "", "--persist-test-database", action="store_true",
             default=env.get(self.env_opt), dest="persist_test_database",
@@ -381,7 +392,7 @@ class DjangoPlugin(Plugin):
 
         from django.conf import settings
         if 'south' in settings.INSTALLED_APPS:
-            from south.management.commands import patch_for_test_db_setup
+            from south.management.commands import patch_for_test_db_setup # @UnresolvedImport pylint: disable=F0401
 
             settings.SOUTH_TESTS_MIGRATE = getattr(settings, 'DST_RUN_SOUTH_MIGRATIONS', True)
             patch_for_test_db_setup()
@@ -412,7 +423,7 @@ class DjangoPlugin(Plugin):
         # Destroy all the non-mirror databases
         for connection, old_name in old_names:
             connection.creation.destroy_test_db(old_name, verbosity)
-        
+
         self.test_database_created = False
 
     def begin(self):
@@ -420,28 +431,25 @@ class DjangoPlugin(Plugin):
         setup_test_environment()
         self.test_database_created = False
 
-    def prepareTestRunner(self, runner):
+    def prepareTestRunner(self, runner): # pylint: disable=W0613
         """
-        Before running tests, initialize database et al, so noone will complain
+        Before running tests, flush the cache
         """
-        # FIXME: this should be lazy for tests that do not need test
-        # database at all
-        
         flush_cache()
 
-    def finalize(self, result):
+    def finalize(self, result): # pylint: disable=W0613
         """
         At the end, tear down our testbed
         """
         from django.test.utils import teardown_test_environment
         teardown_test_environment()
-        
+
         if not self.persist_test_database and getattr(self, 'test_database_created', None):
             self.teardown_databases(self.old_config, verbosity=False)
 #            from django.db import connection
 #            connection.creation.destroy_test_db(self.old_name, verbosity=False)
-    
-    
+
+
     def startTest(self, test):
         """
         When preparing test, check whether to make our database fresh
@@ -455,26 +463,26 @@ class DjangoPlugin(Plugin):
         ### FIXME: It would be nice to separate handlings as plugins et al...but what 
         ### about the context?
         #####
-        
+
         from django.core import mail
         from django.conf import settings
         from django.db import transaction
-        
+
         test_case = get_test_case_class(test)
         test_case_instance = get_test_case_instance(test)
 
         mail.outbox = []
         enable_test(test_case, 'django_plugin_started')
-        
+
         if hasattr(test_case_instance, 'is_skipped') and test_case_instance.is_skipped():
             return
-        
+
         # clear URLs if needed
         if hasattr(test_case, 'urls'):
             test_case._old_root_urlconf = settings.ROOT_URLCONF
             settings.ROOT_URLCONF = test_case.urls
             clear_url_caches()
-        
+
         #####
         ### Database handling follows
         #####
@@ -482,20 +490,20 @@ class DjangoPlugin(Plugin):
             # for true unittests, we can leave database handling for later,
             # as unittests by definition do not interacts with database
             return
-        
+
         # create test database if not already created
         if not self.test_database_created:
             self._create_test_databases()
-        
+
         # make self.transaction available
         test_case.transaction = transaction
-        
+
         if getattr_test(test, 'database_single_transaction'):
             transaction.enter_transaction_management()
             transaction.managed(True)
-        
+
         self._prepare_tests_fixtures(test)
-        
+
     def stopTest(self, test):
         """
         After test is run, clear urlconf, caches and database
@@ -523,7 +531,7 @@ class DjangoPlugin(Plugin):
             # for true unittests, we can leave database handling for later,
             # as unittests by definition do not interacts with database
             return
-        
+
         if getattr_test(test, 'database_single_transaction'):
             transaction.rollback()
             transaction.leave_transaction_management()
@@ -556,7 +564,7 @@ class DjangoPlugin(Plugin):
             else:
                 databases = connections
         return databases
-    
+
     def _prepare_tests_fixtures(self, test):
         # fixtures are loaded inside transaction, thus we don't need to flush
         # between database_single_transaction tests when their fixtures differ
@@ -567,7 +575,8 @@ class DjangoPlugin(Plugin):
             else:
                 commit = False
             for db in self._get_tests_databases(getattr_test(test, 'multi_db')):
-                call_command('loaddata', *getattr_test(test, 'fixtures'), **{'verbosity': 0, 'commit' : commit, 'database' : db})
+                call_command('loaddata', *getattr_test(test, 'fixtures'),
+                             **{'verbosity': 0, 'commit' : commit, 'database' : db})
 
     def _create_test_databases(self):
         from django.conf import settings
@@ -585,7 +594,7 @@ class DjangoPlugin(Plugin):
                 connection.settings_dict["NAME"] = connection.creation._get_test_db_name()
                 try:
                     connection.cursor()
-                except Exception:
+                except Exception: # pylint: disable=W0703
                     # test database doesn't exist, create it as normally:
                     connection.settings_dict["NAME"] = old_db_name # return original db name
                     connection.creation.create_test_db()
@@ -598,9 +607,10 @@ class DjangoPlugin(Plugin):
             for db in connections:
                 if 'south' in settings.INSTALLED_APPS and getattr(settings, 'DST_RUN_SOUTH_MIGRATIONS', True):
                     call_command('migrate', database=db)
-                
+
                 if getattr(settings, "FLUSH_TEST_DATABASE_AFTER_INITIAL_SYNCDB", False):
                     getattr(settings, "TEST_DATABASE_FLUSH_COMMAND", flush_database)(self, database=db)
+
 
 class DjangoTranslationPlugin(Plugin):
     """
@@ -611,7 +621,7 @@ class DjangoTranslationPlugin(Plugin):
 
     score = 70
 
-    def options(self, parser, env=os.environ):
+    def options(self, parser, env=os.environ): # pylint: disable=W0102
         Plugin.options(self, parser, env)
 
     def configure(self, options, config):
@@ -627,7 +637,7 @@ class DjangoTranslationPlugin(Plugin):
                 lang = getattr(settings, "LANGUAGE_CODE", 'en-us')
             translation.activate(lang)
 
-    def stopTest(self, test):
+    def stopTest(self, test): # pylint: disable=W0613,R0201
         from django.utils import translation
         translation.deactivate()
 
@@ -638,10 +648,10 @@ class SeleniumPlugin(Plugin):
     """
     activation_parameter = '--with-selenium'
     name = 'selenium'
-    
+
     score = 80
-    
-    def options(self, parser, env=os.environ):
+
+    def options(self, parser, env=os.environ): # pylint: disable=W0102
         Plugin.options(self, parser, env)
 
     def configure(self, options, config):
@@ -664,7 +674,7 @@ class SeleniumPlugin(Plugin):
                             "djangosanetesting.selenium.driver.selenium").split(".")
         selenium_module, selenium_cls = ".".join(selenium_import[:-1]), selenium_import[-1]
         selenium = getattr(import_module(selenium_module), selenium_cls)
-        
+
         if getattr_test(test, "selenium_start", False):
             browser = getattr(test_case, 'selenium_browser_command', None)
             if browser is None:
@@ -679,7 +689,7 @@ class SeleniumPlugin(Plugin):
             try:
                 sel.start()
                 test_case.selenium_started = True
-            except Exception, err:
+            except Exception, dummy_err: # pylint: disable=W0703
                 # we must catch it all as there is untyped socket exception on Windows :-]]]
                 if getattr(settings, "FORCE_SELENIUM_TESTS", False):
                     raise
@@ -691,7 +701,6 @@ class SeleniumPlugin(Plugin):
                     test.test.test.im_self.selenium = sel
                 else:
                     test_case.skipped = True
-                    #raise SkipTest("I can only assign selenium to TestCase instance; argument passing will be implemented later")
 
     def stopTest(self, test):
         if getattr_test(test, "selenium_started", False):
@@ -703,8 +712,12 @@ class SaneTestSelectionPlugin(Plugin):
     """ Accept additional options, so we can filter out test we don't want """
     RECOGNIZED_TESTS = ["unit", "database", "destructivedatabase", "http", "selenium"]
     score = 150
-    
-    def options(self, parser, env=os.environ):
+
+    def __init__(self):
+        super(SaneTestSelectionPlugin, self).__init__()
+        self.enabled_tests = None
+
+    def options(self, parser, env=os.environ): # pylint: disable=W0102
         Plugin.options(self, parser, env)
         parser.add_option(
             "-u", "--select-unittests", action="store_true",
@@ -735,7 +748,7 @@ class SaneTestSelectionPlugin(Plugin):
     def configure(self, options, config):
         Plugin.configure(self, options, config)
         self.enabled_tests = [i for i in self.RECOGNIZED_TESTS if getattr(options, "select_%stests" % i, False)]
-    
+
     def startTest(self, test):
         test_case = get_test_case_class(test)
         if getattr_test(test, "test_type", "unit") not in self.enabled_tests:
@@ -760,6 +773,10 @@ class ResultPlugin(Plugin):
     name = "djangoresult"
     activation_parameter = '--with-djangoresult'
     enabled = True
+
+    def __init__(self):
+        super(ResultPlugin, self).__init__()
+        self.result = None
 
     def configure(self, options, config):
         Plugin.configure(self, options, config)

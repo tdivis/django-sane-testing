@@ -1,5 +1,3 @@
-import urllib2
-
 from djangosanetesting.cases import DatabaseTestCase, DestructiveDatabaseTestCase, HttpTestCase
 from djangosanetesting.utils import mock_settings
 

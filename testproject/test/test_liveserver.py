@@ -8,27 +8,26 @@ from djangosanetesting.utils import get_live_server_path
 from testapp.models import ExampleModel
 
 class TestLiveServerRunning(HttpTestCase):
-    
+
     def get_ok(self):
         self.assertEquals(u'OKidoki', self.urlopen('%stesttwohundred/' % get_live_server_path()).read())
 
     def test_http_retrievable(self):
         return self.get_ok()
-    
+
     def test_http_retrievable_repeatedly(self):
         return self.get_ok()
-    
+
     def test_client_available(self):
         res = self.client.get('/testtwohundred/')
         self.assert_equals(200, res.status_code)
-    
+
     def test_not_authorized_not_resetable(self):
         # This is lame, but condition is non-deterministic and reveals itself
         # when repeating request often...
-        for i in xrange(1, 10):
+        for dummy in xrange(1, 10):
             try:
-                response = self.urlopen(url='%sreturn_not_authorized/' % get_live_server_path(), data='data')
-                #response = opener.open(request)
+                self.urlopen(url='%sreturn_not_authorized/' % get_live_server_path(), data='data')
             except urllib2.HTTPError, err:
                 self.assert_equals(401, err.code)
             else:
@@ -118,6 +117,7 @@ class TestTwill(HttpTestCase):
             self.assert_equals("500 Server error, traceback not found", err.msg)
         else:
             self.fail("500 expected")
+
 
 class TestSpynner(HttpTestCase):
     def test_ok_loaded(self):

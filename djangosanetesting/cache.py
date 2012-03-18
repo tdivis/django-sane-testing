@@ -8,7 +8,7 @@ to Django < 1.2
 
 def clear_db(cache):
     from django.db import connection
-    cursor = connection.cursor()
+    cursor = connection.cursor() # @UndefinedVariable
     cursor.execute('DELETE FROM %s' % cache._table)
 
 def clear_filebased(cache):

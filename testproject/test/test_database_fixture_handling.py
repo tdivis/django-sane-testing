@@ -18,14 +18,14 @@ class TestAAAFirstfixture(DatabaseTestCase):
     def test_fixture_loaded(self):
         self.assert_equals(ExampleModel, ExampleModel.objects.get(pk=1).__class__)
         self.assert_equals(ExampleModel, ExampleModel.objects.get(pk=2).__class__)
-    
+
 class TestBBBSecondFixture(DatabaseTestCase):
     fixtures = ['duplicate_model_for_testing']
     def test_fixture_loaded(self):
         self.assert_equals(ExampleModel, ExampleModel.objects.get(pk=3).__class__)
         self.assert_equals(ExampleModel, ExampleModel.objects.get(pk=4).__class__)
-   
+
     def test_aaa_fixture_not_loaded(self):
         self.assert_raises(ExampleModel.DoesNotExist, lambda:ExampleModel.objects.get(pk=1))
-        self.assert_raises(ExampleModel.DoesNotExist, lambda:ExampleModel.objects.get(pk=2))    
+        self.assert_raises(ExampleModel.DoesNotExist, lambda:ExampleModel.objects.get(pk=2))
 

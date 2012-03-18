@@ -4,6 +4,7 @@ import unittest
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.db.models import get_app, get_apps
 
 #This module was taken from Django 1.2.4 source code and embedded for backward
 #compatibility.
@@ -20,6 +21,10 @@ except NameError:
 TEST_MODULE = 'tests'
 
 class DjangoTestRunner(unittest.TextTestRunner):
+    def __init__(self, *args, **kwargs):
+        super(DjangoTestRunner, self).__init__(*args, **kwargs)
+        self._default_keyboard_interrupt_handler = None
+        self._keyboard_interrupt_intercepted = False
 
     def run(self, *args, **kwargs):
         """
@@ -66,7 +71,7 @@ def get_tests(app_module):
     try:
         app_path = app_module.__name__.split('.')[:-1]
         test_module = __import__('.'.join(app_path + [TEST_MODULE]), {}, {}, TEST_MODULE)
-    except ImportError, e:
+    except ImportError:
         # Couldn't import tests.py. Was it due to a missing file, or
         # due to an import error in a tests.py that actually exists?
         import os.path
@@ -141,7 +146,7 @@ def build_test(label):
     #
     # First, look for TestCase instances with a name that matches
     #
-    from django.db.models import get_app
+
     app_module = get_app(parts[0])
     test_module = get_tests(app_module)
     TestClass = getattr(app_module, parts[1], None)
@@ -225,10 +230,10 @@ def reorder_suite(suite, classes):
     Tests with no match in classes are placed last.
     """
     class_count = len(classes)
-    bins = [unittest.TestSuite() for i in range(class_count+1)]
+    bins = [unittest.TestSuite() for i in range(class_count + 1)]
     partition_suite(suite, classes, bins)
     for i in range(class_count):
-        bins[0].addTests(bins[i+1])
+        bins[0].addTests(bins[i + 1])
     return bins[0]
 
 def dependency_ordered(test_databases, dependencies):
@@ -278,7 +283,6 @@ class DjangoTestSuiteRunner(object):
         settings.DEBUG = False
 
     def build_suite(self, test_labels, extra_tests=None, **kwargs):
-        from django.db.models import get_apps
         from django.test.testcases import TestCase
 
         suite = unittest.TestSuite()
@@ -333,7 +337,7 @@ class DjangoTestSuiteRunner(object):
         # Second pass -- actually create the databases.
         old_names = []
         mirrors = []
-        for signature, (db_name, aliases) in dependency_ordered(test_databases.items(), dependencies):
+        for dummy_signature, (db_name, aliases) in dependency_ordered(test_databases.items(), dependencies):
             # Actually create the database for the first connection
             connection = connections[aliases[0]]
             old_names.append((connection, db_name, True))
@@ -398,8 +402,6 @@ class DjangoTestSuiteRunner(object):
 
         Returns the number of tests that failed.
         """
-        from django.test.utils import (
-            setup_test_environment, teardown_test_environment)
         self.setup_test_environment()
         suite = self.build_suite(test_labels, extra_tests)
         old_config = self.setup_databases()

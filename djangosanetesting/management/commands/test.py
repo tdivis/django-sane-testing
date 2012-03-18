@@ -9,9 +9,9 @@ from django.test.utils import get_runner
 
 
 if 'south' in settings.INSTALLED_APPS:
-    from south.management.commands.test import Command
+    from south.management.commands.test import Command as OriginalCommand # @UnresolvedImport @UnusedImport pylint: disable=F0401
 else:
-    from django.core.management.commands.test import Command
+    from django.core.management.commands.test import Command as OriginalCommand # @Reimport
 
 TestRunner = get_runner(settings)
 
@@ -21,5 +21,5 @@ else:
     extra_options = []
 
 
-class Command(Command):
-    option_list = Command.option_list + tuple(extra_options)
+class Command(OriginalCommand):
+    option_list = OriginalCommand.option_list + tuple(extra_options)

@@ -1,29 +1,17 @@
 import re
-import sys
 import urllib2
 
 from django.template import Context, Template, TemplateSyntaxError
-from nose.tools import (
-                assert_equals,
-                assert_almost_equals,
-                assert_not_equals,
-                assert_raises,
-                assert_true,
-                assert_false,
-)
 from nose import SkipTest
 
-from djangosanetesting.utils import twill_patched_go, twill_xpath_go, extract_django_traceback, get_live_server_path
+from djangosanetesting.utils import twill_patched_go, twill_xpath_go, extract_django_traceback
 
-try:
-    from django.db import DEFAULT_DB_ALIAS
-    MULTIDB_SUPPORT = True
-except ImportError:
-    DEFAULT_DB_ALIAS = 'default'
-    MULTIDB_SUPPORT = False
+from djangosanetesting import MULTIDB_SUPPORT
+
 
 __all__ = ("UnitTestCase", "DatabaseTestCase", "DestructiveDatabaseTestCase",
            "HttpTestCase", "SeleniumTestCase", "TemplateTagTestCase")
+
 
 class SaneTestCase(object):
     """ Common ancestor we're using our own hierarchy """
@@ -33,58 +21,60 @@ class SaneTestCase(object):
     selenium_start = False
     no_database_interaction = False
     make_translations = True
-    
+
+    required_sane_plugins = None
+
     SkipTest = SkipTest
 
     failureException = AssertionError
 
-    def __new__(type, *args, **kwargs):
+    def __new__(cls, *args, **kwargs):
         """
         When constructing class, add assert* methods from unittest(2),
         both camelCase and pep8-ify style.
         
         """
-        obj = super(SaneTestCase, type).__new__(type, *args, **kwargs)
+        obj = super(SaneTestCase, cls).__new__(cls, *args, **kwargs)
 
         caps = re.compile('([A-Z])')
-        
+
         from django.test import TestCase
-        
+
         ##########
         ### Scraping heavily inspired by nose testing framework, (C) by Jason Pellerin
         ### and respective authors.
         ##########
-        
+
         class Dummy(TestCase):
-            def att():
+            def test_meth(self):
                 pass
-        t = Dummy('att')
-        
+        dummy_test_case = Dummy('test_meth')
+
         def pepify(name):
             return caps.sub(lambda m: '_' + m.groups()[0].lower(), name)
-        
-        def scrape(t):
-            for a in [at for at in dir(t) if at.startswith('assert') and not '_' in at]:
-                v = getattr(t, a)
-                setattr(obj, a, v)
-                setattr(obj, pepify(a), v)
-        
-        scrape(t)
-        
+
+        def scrape(dummy_test_case):
+            for attr in [at for at in dir(dummy_test_case) if at.startswith('assert') and not '_' in at]:
+                val = getattr(dummy_test_case, attr)
+                setattr(obj, attr, val)
+                setattr(obj, pepify(attr), val)
+
+        scrape(dummy_test_case)
+
         try:
             from unittest2 import TestCase
         except ImportError:
             pass
         else:
-            class Dummy(TestCase):
-                def att():
+            class Dummy(TestCase): # pylint: disable=E0102
+                def test_meth(self):
                     pass
-            t = Dummy('att')
-            scrape(t)
-                
+            dummy_test_case = Dummy('test_meth')
+            scrape(dummy_test_case)
+
         return obj
 
-    
+
     def _check_plugins(self):
         if getattr(self, 'required_sane_plugins', False):
             for plugin in self.required_sane_plugins:
@@ -100,14 +90,14 @@ class SaneTestCase(object):
         self._check_plugins()
         if getattr(self, 'multi_db', False) and not MULTIDB_SUPPORT:
             raise self.SkipTest("I need multi db support to run, skipping..")
-    
+
     def is_skipped(self):
         if getattr(self, 'multi_db', False) and not MULTIDB_SUPPORT:
             return True
         try:
             self._check_skipped()
             self._check_plugins()
-        except self.SkipTest, e:
+        except self.SkipTest:
             return True
         else:
             return False
@@ -118,6 +108,7 @@ class SaneTestCase(object):
     def tearDown(self):
         pass
 
+
 class UnitTestCase(SaneTestCase):
     """
     This class is a unittest, i.e. do not interact with database et al
@@ -126,6 +117,9 @@ class UnitTestCase(SaneTestCase):
     no_database_interaction = True
     test_type = "unit"
 
+    def __init__(self, *args, **kwargs):
+        super(UnitTestCase, self).__init__(*args, **kwargs)
+        self._django_client = None
 
     # undocumented client: can be only used for views that are *guaranteed*
     # not to interact with models
@@ -144,7 +138,7 @@ class UnitTestCase(SaneTestCase):
 class DatabaseTestCase(SaneTestCase):
     """
     Tests using database for models in simple: rollback on teardown and we're out.
-    
+
     However, we must check for fixture difference, if we're using another fixture, we must flush database anyway.
     """
     database_single_transaction = True
@@ -153,15 +147,19 @@ class DatabaseTestCase(SaneTestCase):
     django_plugin_started = False
     test_type = "database"
 
+    def __init__(self, *args, **kwargs):
+        super(DatabaseTestCase, self).__init__(*args, **kwargs)
+        self._django_client = None
+
     def get_django_client(self):
         from django.test import Client
         if not getattr(self, '_django_client', False):
             self._django_client = Client()
         return self._django_client
-    
+
     def set_django_client(self, value):
         self._django_client = value
-    
+
     client = property(fget=get_django_client, fset=set_django_client)
 
 
@@ -221,11 +219,9 @@ class HttpTestCase(DestructiveDatabaseTestCase):
     def get_twill(self):
         if not self._twill:
             try:
-                import twill
+                from twill import get_browser
             except ImportError:
                 raise SkipTest("Twill must be installed if you want to use it")
-
-            from twill import get_browser
 
             self._twill = get_browser()
             self._twill.go = twill_patched_go(browser=self._twill, original_go=self._twill.go)
@@ -241,7 +237,7 @@ class HttpTestCase(DestructiveDatabaseTestCase):
     def get_spynner(self):
         if not self._spynner:
             try:
-                import spynner
+                import spynner # @UnresolvedImport pylint: disable=F0401
             except ImportError:
                 raise SkipTest("Spynner must be installed if you want to use it")
 
@@ -255,7 +251,7 @@ class HttpTestCase(DestructiveDatabaseTestCase):
     def assert_code(self, code):
         self.assert_equals(int(code), self.twill.get_code())
 
-    def urlopen(self, *args, **kwargs):
+    def urlopen(self, *args, **kwargs): # pylint: disable=R0201
         """
         Wrap for the urlopen function from urllib2
         prints django's traceback if server responds with 500
@@ -273,6 +269,7 @@ class HttpTestCase(DestructiveDatabaseTestCase):
             self._spynner.close()
 
         super(HttpTestCase, self).tearDown()
+
 
 class SeleniumTestCase(HttpTestCase):
     """

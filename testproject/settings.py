@@ -4,7 +4,7 @@ from os import path
 
 working_dir = path.dirname(path.abspath(__file__))
 
-APPLICATION_ROOT=path.join(path.dirname(path.abspath(__file__)))
+APPLICATION_ROOT = path.join(path.dirname(path.abspath(__file__)))
 
 # List of callables that know how to import templates from various sources.
 TEMPLATE_LOADERS = (
@@ -45,13 +45,13 @@ INSTALLED_APPS = (
     'django.contrib.sites',
     'django.contrib.admin',
     'testapp',
-    
+
     'djangosanetesting',
 )
 
-TEST_RUNNER='djangosanetesting.testrunner.DstNoseTestSuiteRunner'
+TEST_RUNNER = 'djangosanetesting.testrunner.DstNoseTestSuiteRunner'
 
-TEST_DATABASE_CHARSET="utf8"
+TEST_DATABASE_CHARSET = "utf8"
 
 CHERRYPY_TEST_SERVER = True
 
@@ -64,7 +64,7 @@ NONSENSICAL_SETTING_ATTRIBUTE_FOR_MOCK_TESTING = "owned"
 
 DEBUG = True
 
-SITE_ID=1
+SITE_ID = 1
 
 from config import *
 

@@ -1,9 +1,25 @@
+"""
+Act as Django test runner, but use nose. Enable common django-sane-testing
+plugins by default.
+
+You can use
+
+    DST_NOSE_ARGS = ['list', 'of', 'args']
+
+in settings.py for arguments that you always want passed to nose.
+
+Test runners themselves are basically copypasted from django-nose project.
+(C) Jeff Balogh and contributors, released under BSD license.
+
+Thanks and kudos.
+
+Modified for django-sane-testing by Almad.
+"""
+
 import os
 import sys
 
 import nose
-from nose.config import Config, all_config_files
-from nose.plugins.manager import DefaultPluginManager
 
 from django.core.management.base import BaseCommand
 try:
@@ -23,23 +39,6 @@ __all__ = ("DstNoseTestSuiteRunner",)
 # This file doen't contain tests
 __test__ = False
 
-"""
-Act as Django test runner, but use nose. Enable common django-sane-testing
-plugins by default.
-
-You can use
-
-    DST_NOSE_ARGS = ['list', 'of', 'args']
-
-in settings.py for arguments that you always want passed to nose.
-
-Test runners themselves are basically copypasted from django-nose project.
-(C) Jeff Balogh and contributors, released under BSD license.
-
-Thanks and kudos.
-
-Modified for django-sane-testing by Almad.
-"""
 
 def activate_plugin(plugin, argv=None):
     argv = argv or sys.argv
@@ -49,7 +48,7 @@ def activate_plugin(plugin, argv=None):
 try:
     any
 except NameError:
-    def any(iterable):
+    def any(iterable): #@ReservedAssignment
         for element in iterable:
             if element:
                 return True
@@ -63,21 +62,21 @@ class DstNoseTestSuiteRunner(DjangoTestSuiteRunner):
         """Test runner that invokes nose."""
         # Prepare django for testing.
         from django.conf import settings
-    
+
         from django.test import utils
         utils.setup_test_environment()
-    
+
         result_plugin = ResultPlugin()
         plugins = [DjangoPlugin(), SeleniumPlugin(), DjangoTranslationPlugin(), result_plugin]
-        
+
         if getattr(settings, 'CHERRYPY_TEST_SERVER', False):
             plugins.append(CherryPyLiveServerPlugin())
         else:
             plugins.append(DjangoLiveServerPlugin())
-        
+
         # Do not pretend it's a production environment.
         # settings.DEBUG = False
-    
+
         # We pass nose a list of arguments that looks like sys.argv, but customize
         # to avoid unknown django arguments.
 
@@ -88,28 +87,28 @@ class DstNoseTestSuiteRunner(DjangoTestSuiteRunner):
         activate_plugin(SeleniumPlugin, nose_argv)
         activate_plugin(DjangoTranslationPlugin, nose_argv)
     #    activate_plugin(ResultPlugin, nose_argv)
-    
+
         if getattr(settings, 'CHERRYPY_TEST_SERVER', False):
             activate_plugin(CherryPyLiveServerPlugin, nose_argv)
         else:
             activate_plugin(DjangoLiveServerPlugin, nose_argv)
-    
+
         # Skip over 'manage.py test' and any arguments handled by django.
         django_opts = ['--noinput']
         for opt in BaseCommand.option_list:
             django_opts.extend(opt._long_opts)
             django_opts.extend(opt._short_opts)
-    
+
         nose_argv.extend(OPTION_TRANSLATION.get(opt, opt)
                          for opt in sys.argv[1:]
                          if opt.startswith('-') and not any(opt.startswith(d) for d in django_opts))
-    
+
         if self.verbosity >= 2:
             print ' '.join(nose_argv)
-    
+
         test_program = nose.core.TestProgram(argv=nose_argv, exit=False,
                                                     addplugins=plugins)
-        
+
         # FIXME: ResultPlugin is working not exactly as advertised in django-nose
         # multiple instance problem, find workaround
     #    result = result_plugin.result
@@ -132,9 +131,9 @@ class DstNoseTestSuiteRunner(DjangoTestSuiteRunner):
 
         Returns the number of tests that failed.
         """
-        
+
         from django.conf import settings
-        
+
         nose_argv = ['nosetests', '--verbosity', str(self.verbosity)] + list(test_labels)
         if hasattr(settings, 'NOSE_ARGS'):
             nose_argv.extend(settings.NOSE_ARGS)
@@ -154,7 +153,8 @@ class DstNoseTestSuiteRunner(DjangoTestSuiteRunner):
 
         result = self.run_suite(nose_argv)
         ### FIXME
-        class SimpleResult(object): pass
+        class SimpleResult(object):
+            pass
         res = SimpleResult()
         res.failures = ['1'] if result else []
         res.errors = []
@@ -181,7 +181,7 @@ def _get_plugins_from_settings():
             except ValueError:
                 raise exceptions.ImproperlyConfigured(
                                     '%s isn\'t a Nose plugin module' % plg_path)
-            p_mod, p_classname = plg_path[:dot], plg_path[dot+1:]
+            p_mod, p_classname = plg_path[:dot], plg_path[dot + 1:]
             try:
                 mod = import_module(p_mod)
             except ImportError, e:

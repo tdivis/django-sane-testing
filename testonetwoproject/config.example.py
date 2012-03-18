@@ -12,9 +12,9 @@ ADMINS = (
      # ('Almad', 'bugs at almad.net'),
 )
 
-URL_ROOT="http://localhost:8000/"
+URL_ROOT = "http://localhost:8000/"
 
-SITE_ID =1
+SITE_ID = 1
 
 MANAGERS = ADMINS
 
