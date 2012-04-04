@@ -222,10 +222,12 @@ class AbstractLiveServerPlugin(Plugin):
                 return False
         return True
 
-    def startTest(self, test):
+    def beforeTest(self, test):
+        # enabling test must be in beforeTest so test can be checked for is_skipped() where is also required_sane_plugin
+        # check, so all plugins must be already enabled in startTest
         from django.conf import settings
         test_case = get_test_case_class(test)
-        test_case_instance = get_test_case_instance(test)
+
         if not self.server_started and getattr_test(test, "start_live_server", False):
             if not self.check_database_multithread_compilant():
                 raise SkipTest("You're running database in memory, but trying to use live server in another thread. Skipping.")
@@ -237,6 +239,8 @@ class AbstractLiveServerPlugin(Plugin):
 
         enable_test(test_case, 'http_plugin_started')
 
+    def startTest(self, test):
+        test_case_instance = get_test_case_instance(test)
         # clear test client for test isolation
         if test_case_instance:
             test_case_instance.client = None
@@ -449,6 +453,14 @@ class DjangoPlugin(Plugin):
 #            from django.db import connection
 #            connection.creation.destroy_test_db(self.old_name, verbosity=False)
 
+    def beforeTest(self, test):
+        # enabling test must be in beforeTest so test can be checked for is_skipped() where is also required_sane_plugin
+        # check, so all plugins must be already enabled in startTest
+        test_case = get_test_case_class(test)
+        if issubclass(test_case, DjangoTestCase):
+            return
+
+        enable_test(test_case, 'django_plugin_started')
 
     def startTest(self, test):
         """
@@ -472,7 +484,6 @@ class DjangoPlugin(Plugin):
         test_case_instance = get_test_case_instance(test)
 
         mail.outbox = []
-        enable_test(test_case, 'django_plugin_started')
 
         if hasattr(test_case_instance, 'is_skipped') and test_case_instance.is_skipped():
             return
@@ -657,6 +668,12 @@ class SeleniumPlugin(Plugin):
     def configure(self, options, config):
         Plugin.configure(self, options, config)
 
+    def beforeTest(self, test):
+        # enabling test must be in beforeTest so test can be checked for is_skipped() where is also required_sane_plugin
+        # check, so all plugins must be already enabled in startTest
+        test_case = get_test_case_class(test)
+        enable_test(test_case, 'selenium_plugin_started')
+
     def startTest(self, test):
         """
         When preparing test, check whether to make our database fresh
@@ -666,8 +683,6 @@ class SeleniumPlugin(Plugin):
         from django.utils.importlib import import_module
 
         test_case = get_test_case_class(test)
-
-        enable_test(test_case, 'selenium_plugin_started')
 
         # import selenium class to use
         selenium_import = getattr(settings, "DST_SELENIUM_DRIVER",
