@@ -22,7 +22,7 @@ from nose.plugins import Plugin
 import djangosanetesting
 from djangosanetesting import MULTIDB_SUPPORT, DEFAULT_DB_ALIAS
 from djangosanetesting.cache import flush_django_cache
-
+from djangosanetesting.contextstack import ContextStack
 from djangosanetesting.utils import (
     get_databases, get_live_server_path,
     get_server_handler,
@@ -96,6 +96,13 @@ def getattr_test(nose_test, attr_name, default=False):
         return test_attr
     else:
         return getattr(get_test_case_instance(nose_test), attr_name, default)
+
+def getattr_test_meth(nose_test, attr, default=None):
+    """ Return attribute of test method/function """
+    test_meth = get_test_case_method(nose_test)
+    if test_meth is None:
+        raise RuntimeError('%s is not test method/function' % nose_test)
+    return getattr(test_meth, attr, default)
 
 def enable_test(test_case, plugin_attribute):
     if not getattr(test_case, plugin_attribute, False):
@@ -330,51 +337,30 @@ class DjangoPlugin(Plugin):
         self.persist_test_database = None
         self.test_database_created = False
         self.old_config = None
+        self.stack = ContextStack()
+        self.db_rollback_done = True
+        self.db_flush_done = True
 
     def startContext(self, context):
-        if ismodule(context) or is_test_case_class(context):
-            if ismodule(context):
-                attr_suffix = ''
-            else:
-                attr_suffix = '_after_all_tests'
-            if getattr(context, 'database_single_transaction' + attr_suffix, False):
-                #TODO: When no test case in this module needing database is run (for example 
-                #      user selected only one unitTestCase), database should not be initialized.
-                #      So it would be best if db is initialized when first test case needing 
-                #      database is run. 
-
-                # create test database if not already created
-                if not self.test_database_created:
-                    self._create_test_databases()
-
-                if getattr(context, 'database_single_transaction' + attr_suffix, False):
-                    from django.db import transaction
-                    transaction.enter_transaction_management()
-                    transaction.managed(True)
-
-                # when used from startTest, nose-wrapped testcase is provided -- while now,
-                # we have 'bare' test case.
-
-                self._prepare_tests_fixtures(context)
+        #print '>>>>', context
+        self.stack.push_context(context)
 
     def stopContext(self, context):
-        if ismodule(context) or is_test_case_class(context):
-            from django.conf import settings
-            from django.db import transaction
+        #print '<<<<', context
+        node = self.stack.pop()
 
-            if ismodule(context):
-                attr_suffix = ''
-            else:
-                attr_suffix = '_after_all_tests'
+        if self.test_database_created:
+            if not self.db_rollback_done and (
+                    node.database_single_transaction_at_end or
+                    (self.stack and self.stack.top().database_single_transaction)
+                ):
+                self._do_rollback(context)
 
-            if self.test_database_created:
-                if getattr(context, 'database_single_transaction' + attr_suffix, False):
-                    transaction.rollback()
-                    transaction.leave_transaction_management()
-
-                if getattr(context, "database_flush" + attr_suffix, None):
-                    for db in self._get_tests_databases(getattr(context, 'multidb', False)):
-                        getattr(settings, "TEST_DATABASE_FLUSH_COMMAND", flush_database)(self, database=db)
+            if not self.db_flush_done and (
+                    node.database_flush_at_end or
+                    (self.stack and self.stack.top().database_flush)
+                ):
+                self._do_flush(context)
 
     def options(self, parser, env=os.environ): # pylint: disable=W0102
         Plugin.options(self, parser, env)
@@ -450,8 +436,6 @@ class DjangoPlugin(Plugin):
 
         if not self.persist_test_database and getattr(self, 'test_database_created', None):
             self.teardown_databases(self.old_config, verbosity=False)
-#            from django.db import connection
-#            connection.creation.destroy_test_db(self.old_name, verbosity=False)
 
     def beforeTest(self, test):
         # enabling test must be in beforeTest so test can be checked for is_skipped() where is also required_sane_plugin
@@ -466,7 +450,6 @@ class DjangoPlugin(Plugin):
         """
         When preparing test, check whether to make our database fresh
         """
-
         test_case = get_test_case_class(test)
         if issubclass(test_case, DjangoTestCase):
             return
@@ -497,23 +480,33 @@ class DjangoPlugin(Plugin):
         #####
         ### Database handling follows
         #####
-        if getattr_test(test, 'no_database_interaction', False):
-            # for true unittests, we can leave database handling for later,
+        if  getattr_test_meth(test, 'no_database_interaction', None) or self.stack.top().no_database_interaction:
+            # for true unittests, we don't need database handling,
             # as unittests by definition do not interacts with database
             return
 
-        # create test database if not already created
         if not self.test_database_created:
             self._create_test_databases()
 
         # make self.transaction available
         test_case.transaction = transaction
 
-        if getattr_test(test, 'database_single_transaction'):
+        # detect if we are in single transaction mode:
+        if (getattr_test_meth(test, "database_single_transaction", False)
+            or (not getattr_test_meth(test, "database_flush", False) and self.stack.is_transaction())):
+            is_transaction = True
+        else:
+            is_transaction = False
+        # start transaction if needed:
+        if self.db_rollback_done and is_transaction:
             transaction.enter_transaction_management()
             transaction.managed(True)
+            self.db_rollback_done = False
+        # we are in database test, so we need to reset this flag:
+        self.db_flush_done = False
 
-        self._prepare_tests_fixtures(test)
+        # don't use commits if we are in single_transaction mode
+        self._prepare_tests_fixtures(test, commit=not is_transaction)
 
     def stopTest(self, test):
         """
@@ -524,7 +517,6 @@ class DjangoPlugin(Plugin):
         if issubclass(test_case, DjangoTestCase):
             return
 
-        from django.db import transaction
         from django.conf import settings
 
         test_case = get_test_case_class(test)
@@ -543,13 +535,17 @@ class DjangoPlugin(Plugin):
             # as unittests by definition do not interacts with database
             return
 
-        if getattr_test(test, 'database_single_transaction'):
-            transaction.rollback()
-            transaction.leave_transaction_management()
+        if not self.db_rollback_done and (
+                getattr_test_meth(test, 'database_single_transaction') or
+                (getattr_test_meth(test, 'database_single_transaction') is None and self.stack.top().database_single_transaction)
+            ):
+            self._do_rollback(test)
 
-        if getattr_test(test, "database_flush", True):
-            for db in self._get_tests_databases(getattr_test(test, 'multi_db')):
-                getattr(settings, "TEST_DATABASE_FLUSH_COMMAND", flush_database)(self, database=db)
+        if not self.db_flush_done and (
+                getattr_test_meth(test, "database_flush") or
+                (getattr_test_meth(test, 'database_flush') is None and self.stack.top().database_flush)
+            ):
+            self._do_flush(test)
 
     def _get_databases(self):
         try:
@@ -576,18 +572,12 @@ class DjangoPlugin(Plugin):
                 databases = connections
         return databases
 
-    def _prepare_tests_fixtures(self, test):
-        # fixtures are loaded inside transaction, thus we don't need to flush
-        # between database_single_transaction tests when their fixtures differ
-        if hasattr_test(test, 'fixtures'):
-            if getattr_test(test, "database_flush", True):
-                # commits are allowed during tests
-                commit = True
-            else:
-                commit = False
-            for db in self._get_tests_databases(getattr_test(test, 'multi_db')):
-                call_command('loaddata', *getattr_test(test, 'fixtures'),
-                             **{'verbosity': 0, 'commit' : commit, 'database' : db})
+    def _prepare_tests_fixtures(self, test, commit):
+        fixtures = self.stack.get_unloaded_fixtures().union(getattr_test_meth(test, 'fixtures', []))
+        for db in self._get_tests_databases(getattr_test(test, 'multi_db')):
+            call_command('loaddata', *fixtures,
+                         **{'verbosity': 0, 'commit' : commit, 'database' : db})
+        self.stack.set_attr_whole_stack('fixtures_loaded', True)
 
     def _create_test_databases(self):
         from django.conf import settings
@@ -621,6 +611,21 @@ class DjangoPlugin(Plugin):
 
                 if getattr(settings, "FLUSH_TEST_DATABASE_AFTER_INITIAL_SYNCDB", False):
                     getattr(settings, "TEST_DATABASE_FLUSH_COMMAND", flush_database)(self, database=db)
+
+    def _do_flush(self, test):
+        from django.conf import settings
+        for db in self._get_tests_databases(getattr_test(test, 'multi_db')):
+            getattr(settings, "TEST_DATABASE_FLUSH_COMMAND", flush_database)(self, database=db)
+        self.db_flush_done = True
+        self.db_rollback_done = True # flush is stronger than rollback
+        self.stack.set_attr_whole_stack('fixtures_loaded', False)
+
+    def _do_rollback(self, test):
+        from django.db import transaction
+        transaction.rollback()
+        transaction.leave_transaction_management()
+        self.db_rollback_done = True
+        self.stack.set_attr_whole_stack('fixtures_loaded', False)
 
 
 class DjangoTranslationPlugin(Plugin):

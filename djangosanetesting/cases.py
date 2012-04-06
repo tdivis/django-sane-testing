@@ -187,7 +187,7 @@ class NonIsolatedDatabaseTestCase(DatabaseTestCase):
     """
     database_single_transaction = False
     database_flush = False
-    database_single_transaction_alfter_case = True
+    database_single_transaction_at_end = True
 
 
 class NonIsolatedDestructiveDatabaseTestCase(DestructiveDatabaseTestCase):
@@ -197,7 +197,7 @@ class NonIsolatedDestructiveDatabaseTestCase(DestructiveDatabaseTestCase):
     """
     database_single_transaction = False
     database_flush = False
-    database_flush_alfter_case = True
+    database_flush_at_end = True
 
 
 class HttpTestCase(DestructiveDatabaseTestCase):
