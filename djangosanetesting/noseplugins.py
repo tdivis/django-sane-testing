@@ -267,7 +267,7 @@ class DjangoLiveServerPlugin(AbstractLiveServerPlugin):
     """
     Patch Django on fly and start live HTTP server, if TestCase is inherited
     from HttpTestCase or start_live_server attribute is set to True.
-    
+
     Taken from Michael Rogers implementation from http://trac.getwindmill.com/browser/trunk/windmill/authoring/djangotest.py
     """
     name = 'djangoliveserver'
@@ -343,6 +343,9 @@ class DjangoPlugin(Plugin):
 
     def startContext(self, context):
         #print '>>>>', context
+        if getattr(context, 'need_db_on_load', None):
+            if not self.test_database_created:
+                self._create_test_databases()
         self.stack.push_context(context)
 
     def stopContext(self, context):

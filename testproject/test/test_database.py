@@ -42,9 +42,9 @@ class TestProperClashing(DatabaseTestCase):
       (1) test_aaa_commit_object
       (2) test_bbb_object_present
       (3) test_ccc_object_still_present
-      
+
     This is antipattern and should not be used, but it's hard to test
-    framework from within ;) Better solution would be greatly appreciated.  
+    framework from within ;) Better solution would be greatly appreciated.
     """
 
     def test_aaa_commit_object(self):
@@ -92,4 +92,17 @@ class TestDjangoOneTwoMultipleDatabases(DestructiveDatabaseTestCase):
 
     })
     def test_multiple_databases_flushed(self):
+        pass
+
+class TestDatabaseOnLoad(DatabaseTestCase):
+    need_db_on_load = True
+
+    @classmethod
+    def setup_class(self):
+        example_model = ExampleModel.objects.create(name="test_db_on_load")
+        assert 1 == len(ExampleModel.objects.filter(name="test_db_on_load"))
+        example_model.delete()
+
+    def test(self):
+        """ Test method here just to ensure that setup_class() will be executed."""
         pass

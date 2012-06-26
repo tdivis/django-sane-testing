@@ -20,6 +20,7 @@ class SaneTestCase(object):
     database_flush = False
     selenium_start = False
     no_database_interaction = False
+    need_db_on_load = False # useful if you need database in setup/setup_class
     make_translations = True
 
     required_sane_plugins = None
@@ -32,7 +33,7 @@ class SaneTestCase(object):
         """
         When constructing class, add assert* methods from unittest(2),
         both camelCase and pep8-ify style.
-        
+
         """
         obj = super(SaneTestCase, cls).__new__(cls, *args, **kwargs)
 
@@ -164,7 +165,7 @@ class DatabaseTestCase(SaneTestCase):
 
 
 class NoCleanupDatabaseTestCase(DatabaseTestCase):
-    ''' 
+    '''
     Initiates test database but have no cleanup utility at all (no rollback, no flush).
     Useful for example when cleanup is done by module-level attribute or pure read-only tests.
     '''
@@ -182,7 +183,7 @@ class DestructiveDatabaseTestCase(DatabaseTestCase):
 
 class NonIsolatedDatabaseTestCase(DatabaseTestCase):
     """
-    Like DatabaseTestCase, but rollback transaction only once - after test case. 
+    Like DatabaseTestCase, but rollback transaction only once - after test case.
     That means tests in test case are not isolated but run faster.
     """
     database_single_transaction = False
@@ -192,7 +193,7 @@ class NonIsolatedDatabaseTestCase(DatabaseTestCase):
 
 class NonIsolatedDestructiveDatabaseTestCase(DestructiveDatabaseTestCase):
     """
-    Like DestructiveDatabaseTestCase, but flushing db only once - after test case. 
+    Like DestructiveDatabaseTestCase, but flushing db only once - after test case.
     That means tests in test case are not isolated but run much faster.
     """
     database_single_transaction = False
