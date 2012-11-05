@@ -81,8 +81,6 @@ class TestDjangoOneTwoMultipleDatabases(DestructiveDatabaseTestCase):
     framework from within :-] Better solution would be greatly appreciated.
     """
     def setUp(self):
-        super(TestDjangoOneTwoMultipleDatabases, self).setUp()
-
         if django.VERSION[0] < 1 or (django.VERSION[0] == 1 and django.VERSION[1] < 2):
             raise self.SkipTest("This case is only for Django 1.2+")
 
@@ -103,6 +101,6 @@ class TestDatabaseOnLoad(DatabaseTestCase):
         assert 1 == len(ExampleModel.objects.filter(name="test_db_on_load"))
         example_model.delete()
 
-    def test(self):
+    def test_db_onload(self):
         """ Test method here just to ensure that setup_class() will be executed."""
         pass

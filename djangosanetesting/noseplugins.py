@@ -225,8 +225,7 @@ class AbstractLiveServerPlugin(Plugin):
         for alias in connections:
             database = connections[alias]
             if database.settings_dict['NAME'] == ':memory:' and database.settings_dict['ENGINE'] in ('django.db.backends.sqlite3', 'sqlite3'):
-                self.skipped = True
-                return False
+                raise SkipTest("You're running database in memory, but trying to use live server in another thread. Skipping.")
         return True
 
     def beforeTest(self, test):
@@ -236,8 +235,7 @@ class AbstractLiveServerPlugin(Plugin):
         test_case = get_test_case_class(test)
 
         if not self.server_started and getattr_test(test, "start_live_server", False):
-            if not self.check_database_multithread_compilant():
-                raise SkipTest("You're running database in memory, but trying to use live server in another thread. Skipping.")
+            self.check_database_multithread_compilant()
             self.start_server(
                 address=getattr(settings, "LIVE_SERVER_ADDRESS", DEFAULT_LIVE_SERVER_ADDRESS),
                 port=int(getattr(settings, "LIVE_SERVER_PORT", DEFAULT_LIVE_SERVER_PORT))
@@ -446,6 +444,8 @@ class DjangoPlugin(Plugin):
         test_case = get_test_case_class(test)
         if issubclass(test_case, DjangoTestCase):
             return
+        if getattr_test(test_case, 'multi_db', False) and not MULTIDB_SUPPORT:
+            raise SkipTest("I need multi db support to run, skipping..")
 
         enable_test(test_case, 'django_plugin_started')
 
@@ -456,6 +456,8 @@ class DjangoPlugin(Plugin):
         test_case = get_test_case_class(test)
         if issubclass(test_case, DjangoTestCase):
             return
+
+
 
         #####
         ### FIXME: It would be nice to separate handlings as plugins et al...but what 
@@ -468,11 +470,10 @@ class DjangoPlugin(Plugin):
 
         test_case = get_test_case_class(test)
         test_case_instance = get_test_case_instance(test)
+        if isinstance(test_case_instance, djangosanetesting.cases.SaneTestCase):
+            test_case_instance.check_plugins()
 
         mail.outbox = []
-
-        if hasattr(test_case_instance, 'is_skipped') and test_case_instance.is_skipped():
-            return
 
         # clear URLs if needed
         if hasattr(test_case, 'urls'):
@@ -524,9 +525,6 @@ class DjangoPlugin(Plugin):
 
         test_case = get_test_case_class(test)
         test_case_instance = get_test_case_instance(test)
-
-        if hasattr(test_case_instance, 'is_skipped') and test_case_instance.is_skipped():
-            return
 
         if hasattr(test_case, '_old_root_urlconf'):
             settings.ROOT_URLCONF = test_case._old_root_urlconf
@@ -712,18 +710,17 @@ class SeleniumPlugin(Plugin):
             try:
                 sel.start()
                 test_case.selenium_started = True
-            except Exception, dummy_err: # pylint: disable=W0703
+            except Exception, err: # pylint: disable=W0703
                 # we must catch it all as there is untyped socket exception on Windows :-]]]
                 if getattr(settings, "FORCE_SELENIUM_TESTS", False):
                     raise
                 else:
-                    test_case.skipped = True
-                    #raise SkipTest(err)
+                    raise SkipTest(err)
             else:
                 if isinstance(test.test, nose.case.MethodTestCase):
                     test.test.test.im_self.selenium = sel
                 else:
-                    test_case.skipped = True
+                    raise SkipTest("Selenium test cannot be function-test")
 
     def stopTest(self, test):
         if getattr_test(test, "selenium_started", False):
@@ -775,8 +772,7 @@ class SaneTestSelectionPlugin(Plugin):
     def startTest(self, test):
         test_case = get_test_case_class(test)
         if getattr_test(test, "test_type", "unit") not in self.enabled_tests:
-            test_case.skipped = True
-            #raise SkipTest(u"Test type %s not enabled" % getattr(test_case, "test_type", "unit"))
+            raise SkipTest(u"Test type %s not enabled" % getattr(test_case, "test_type", "unit"))
 
 ##########
 ### Result plugin is used when using Django test runner

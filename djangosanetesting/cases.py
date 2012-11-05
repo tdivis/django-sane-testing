@@ -75,33 +75,11 @@ class SaneTestCase(object):
 
         return obj
 
-
-    def _check_plugins(self):
+    def check_plugins(self):
         if getattr(self, 'required_sane_plugins', False):
             for plugin in self.required_sane_plugins:
                 if not getattr(self, "%s_plugin_started" % plugin, False):
                     raise self.SkipTest("Plugin %s from django-sane-testing required, skipping" % plugin)
-
-    def _check_skipped(self):
-        if getattr(self, "skipped", False):
-            raise self.SkipTest("I've been marked to skip myself")
-
-    def setUp(self):
-        self._check_skipped()
-        self._check_plugins()
-        if getattr(self, 'multi_db', False) and not MULTIDB_SUPPORT:
-            raise self.SkipTest("I need multi db support to run, skipping..")
-
-    def is_skipped(self):
-        if getattr(self, 'multi_db', False) and not MULTIDB_SUPPORT:
-            return True
-        try:
-            self._check_skipped()
-            self._check_plugins()
-        except self.SkipTest:
-            return True
-        else:
-            return False
 
     def fail(self, *args, **kwargs):
         raise self.failureException(*args, **kwargs)

@@ -18,8 +18,6 @@ class TestDjangoOneTwoMultipleDatabases(DestructiveDatabaseTestCase):
     multi_db = True
 
     def setUp(self):
-        super(TestDjangoOneTwoMultipleDatabases, self).setUp()
-
         if django.VERSION[0] < 1 or (django.VERSION[0] == 1 and django.VERSION[1] < 2):
             raise self.SkipTest("This case is only for Django 1.2+")
 
