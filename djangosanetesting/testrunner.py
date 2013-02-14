@@ -64,7 +64,6 @@ class DstNoseTestSuiteRunner(DjangoTestSuiteRunner):
         from django.conf import settings
 
         from django.test import utils
-        utils.setup_test_environment()
 
         result_plugin = ResultPlugin()
         plugins = [DjangoPlugin(), SeleniumPlugin(), DjangoTranslationPlugin(), result_plugin]
@@ -137,6 +136,8 @@ class DstNoseTestSuiteRunner(DjangoTestSuiteRunner):
         nose_argv = ['nosetests', '--verbosity', str(self.verbosity)] + list(test_labels)
         if hasattr(settings, 'NOSE_ARGS'):
             nose_argv.extend(settings.NOSE_ARGS)
+
+        self.setup_test_environment()
 
         # Skip over 'manage.py test' and any arguments handled by django.
         django_opts = ['--noinput']

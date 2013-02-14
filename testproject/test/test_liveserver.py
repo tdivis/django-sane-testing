@@ -42,12 +42,13 @@ class TestLiveServerRunning(HttpTestCase):
         else:
             assert False, "500 expected"
 
-    def test_django_error_traceback(self):
+    def test_django_error_no_traceback(self):
         try:
             self.urlopen(url='%sreturn_django_error/' % get_live_server_path())
         except urllib2.HTTPError, err:
             self.assert_equals(500, err.code)
-            self.assert_not_equals("500 Server error, traceback not found", err.msg)
+            # tests are run with DEBUG=False so no traceback on page
+            self.assert_equals("500 Server error, traceback not found", err.msg)
         else:
             assert False, "500 expected"
 
@@ -105,7 +106,8 @@ class TestTwill(HttpTestCase):
             self.twill.go('/return_django_error/')
         except urllib2.HTTPError, err:
             self.assert_equals(500, err.code)
-            self.assert_not_equals("500 Server error, traceback not found", err.msg)
+            # tests are run with DEBUG=False so no traceback on page
+            self.assert_equals("500 Server error, traceback not found", err.msg)
         else:
             self.fail("500 expected")
 
