@@ -401,7 +401,16 @@ class DjangoPlugin(Plugin):
                     old_names.append((connection, connection.settings_dict['NAME']))
                 else:
                     old_names.append((connection, connection.settings_dict['DATABASE_NAME']))
-                connection.creation.create_test_db(verbosity=verbosity, autoclobber=autoclobber)
+
+                orig_settings_dict = connection.settings_dict.copy()
+                try:
+                    connection.creation.create_test_db(verbosity=verbosity, autoclobber=autoclobber)
+                except Exception:
+                    # Prevent creation of multiple databases with test_ prefix (e.g. test_db, test_test_db, ...)
+                    connection.close()
+                    connection.settings_dict = orig_settings_dict
+                    raise
+
         return old_names, mirrors
 
     def teardown_databases(self, old_config, verbosity, **kwargs):
@@ -802,4 +811,3 @@ class ResultPlugin(Plugin):
 
     def finalize(self, result):
         self.result = result
-
