@@ -584,9 +584,10 @@ class DjangoPlugin(Plugin):
 
     def _prepare_tests_fixtures(self, test, commit):
         fixtures = self.stack.get_unloaded_fixtures().union(getattr_test_meth(test, 'fixtures', []))
-        for db in self._get_tests_databases(getattr_test(test, 'multi_db')):
-            call_command('loaddata', *fixtures,
-                         **{'verbosity': 0, 'commit' : commit, 'database' : db})
+        if fixtures:
+            for db in self._get_tests_databases(getattr_test(test, 'multi_db')):
+                call_command('loaddata', *fixtures,
+                             **{'verbosity': 0, 'commit' : commit, 'database' : db})
         self.stack.set_attr_whole_stack('fixtures_loaded', True)
 
     def _create_test_databases(self):
