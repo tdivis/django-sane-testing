@@ -18,3 +18,12 @@ def test_ccc_add_model2():
 
 def test_bbb_model_still_available():
     assert_equals(1, len(ExampleModel.objects.all()))
+
+
+# test generated test function:
+def _create_model():
+    ExampleModel.objects.create(pk=1)
+
+def test_generated_tests():
+    for i in xrange(3):
+        yield _create_model
