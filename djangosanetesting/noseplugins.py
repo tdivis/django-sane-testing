@@ -72,7 +72,7 @@ def get_test_case_method(nose_test):
 def get_test_case_instance(nose_test):
     if ismodule(nose_test) or is_test_case_class(nose_test):
         return nose_test
-    if getattr(nose_test, 'test') and not isinstance(nose_test.test, (nose.case.FunctionTestCase)):
+    if getattr(nose_test, 'test', False) and not isinstance(nose_test.test, (nose.case.FunctionTestCase)):
         return get_test_case_method(nose_test).im_self
 
 def hasattr_test(nose_test, attr_name):
