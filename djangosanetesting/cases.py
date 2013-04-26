@@ -2,15 +2,56 @@ import re
 import urllib2
 
 from django.template import Context, Template, TemplateSyntaxError
+from django.test import TestCase
 from nose import SkipTest
 
 from djangosanetesting.utils import twill_patched_go, twill_xpath_go, extract_django_traceback
 
-from djangosanetesting import MULTIDB_SUPPORT
-
 
 __all__ = ("UnitTestCase", "DatabaseTestCase", "DestructiveDatabaseTestCase",
            "HttpTestCase", "SeleniumTestCase", "TemplateTagTestCase")
+
+
+##########
+### Scraping heavily inspired by nose testing framework, (C) by Jason Pellerin
+### and respective authors.
+##########
+
+# This is descendant of the django TestCase, that means it has all features of unittest2
+class _DummyTestCase(TestCase):
+    def test_dummy(self):
+        pass
+
+_DUMMY = _DummyTestCase('test_dummy')
+CAPS = re.compile('([A-Z])')
+
+
+def pepify(name):
+    """
+    Transforms attribute names from camel case to underscored.
+    """
+    return CAPS.sub(lambda m: '_' + m.groups()[0].lower(), name)
+
+
+def scrape(target):
+    """
+    Scrapes attributes from `django.test.TestCase` to target object.
+    """
+    non_magic = [attr for attr in dir(_DUMMY) if not attr.startswith('__') and not attr.endswith('__')]
+    for attr in non_magic:
+        # Do not scrape overriden attributes
+        if hasattr(target, attr):
+            continue
+
+        value = getattr(_DUMMY, attr)
+        if hasattr(value, 'im_func'):
+            # If attribute is a method, unbind it and then bind it to the new object
+            unbound = value.im_func
+            value = unbound.__get__(target, target.__class__)
+        setattr(target, attr, value)
+        # Pepify only public methods
+        if not attr.startswith('_'):
+            setattr(target, pepify(attr), value)
 
 
 class SaneTestCase(object):
@@ -27,52 +68,14 @@ class SaneTestCase(object):
 
     SkipTest = SkipTest
 
-    failureException = AssertionError
-
     def __new__(cls, *args, **kwargs):
         """
-        When constructing class, add assert* methods from unittest(2),
+        When constructing class, add methods from unittest(2),
         both camelCase and pep8-ify style.
 
         """
         obj = super(SaneTestCase, cls).__new__(cls, *args, **kwargs)
-
-        caps = re.compile('([A-Z])')
-
-        from django.test import TestCase
-
-        ##########
-        ### Scraping heavily inspired by nose testing framework, (C) by Jason Pellerin
-        ### and respective authors.
-        ##########
-
-        class Dummy(TestCase):
-            def test_meth(self):
-                pass
-        dummy_test_case = Dummy('test_meth')
-
-        def pepify(name):
-            return caps.sub(lambda m: '_' + m.groups()[0].lower(), name)
-
-        def scrape(dummy_test_case):
-            for attr in [at for at in dir(dummy_test_case) if at.startswith('assert') and not '_' in at]:
-                val = getattr(dummy_test_case, attr)
-                setattr(obj, attr, val)
-                setattr(obj, pepify(attr), val)
-
-        scrape(dummy_test_case)
-
-        try:
-            from unittest2 import TestCase
-        except ImportError:
-            pass
-        else:
-            class Dummy(TestCase): # pylint: disable=E0102
-                def test_meth(self):
-                    pass
-            dummy_test_case = Dummy('test_meth')
-            scrape(dummy_test_case)
-
+        scrape(obj)
         return obj
 
     def check_plugins(self):
@@ -80,12 +83,6 @@ class SaneTestCase(object):
             for plugin in self.required_sane_plugins:
                 if not getattr(self, "%s_plugin_started" % plugin, False):
                     raise self.SkipTest("Plugin %s from django-sane-testing required, skipping" % plugin)
-
-    def fail(self, *args, **kwargs):
-        raise self.failureException(*args, **kwargs)
-
-    def tearDown(self):
-        pass
 
 
 class UnitTestCase(SaneTestCase):
@@ -246,8 +243,6 @@ class HttpTestCase(DestructiveDatabaseTestCase):
     def tearDown(self):
         if self._spynner:
             self._spynner.close()
-
-        super(HttpTestCase, self).tearDown()
 
 
 class SeleniumTestCase(HttpTestCase):

@@ -534,15 +534,17 @@ class DjangoPlugin(Plugin):
         """
         After test is run, clear urlconf, caches and database
         """
-
         test_case = get_test_case_class(test)
+        test_case_instance = get_test_case_instance(test)
+
+        # Call unittest's doCleanups
+        if hasattr(test_case_instance, 'doCleanups'):
+            test_case_instance.doCleanups()
+
         if issubclass(test_case, DjangoTestCase):
             return
 
         from django.conf import settings
-
-        test_case = get_test_case_class(test)
-        test_case_instance = get_test_case_instance(test)
 
         if hasattr(test_case, '_old_root_urlconf'):
             settings.ROOT_URLCONF = test_case._old_root_urlconf
