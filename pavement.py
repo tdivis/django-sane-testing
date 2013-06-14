@@ -26,7 +26,9 @@ Selenium has also been made super easy - just start --with-selenium, inherit fro
 
 Package is documented - see docs/ or http://readthedocs.org/projects/Almad/django-sane-testing/docs/index.html .
 ''',
-    packages=['djangosanetesting', 'djangosanetesting.selenium'],
+    packages=['djangosanetesting', 'djangosanetesting.selenium',
+              'djangosanetesting.management', 'djangosanetesting.management.commands',
+              'djangosanetesting.tests'],
     requires=['Django (>=1.1)', 'nose (>=0.10)'],
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -46,7 +48,7 @@ Package is documented - see docs/ or http://readthedocs.org/projects/Almad/djang
             'selenium = %s.noseplugins:SeleniumPlugin' % name,
             'sanetestselection = %s.noseplugins:SaneTestSelectionPlugin' % name,
             'djangotranslations = %s.noseplugins:DjangoTranslationPlugin' % name,
-	    'djangoresultplugin = %s.noseplugins:ResultPlugin' % name,
+            'djangoresultplugin = %s.noseplugins:ResultPlugin' % name,
         ]
     }
 )
