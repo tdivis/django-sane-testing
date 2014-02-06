@@ -12,7 +12,8 @@ from inspect import ismodule, isclass
 import unittest
 
 from django.core.management import call_command
-from django.core.servers.basehttp import  WSGIRequestHandler, WSGIServerException
+from django.core.servers.basehttp import  WSGIRequestHandler
+
 from django.core.urlresolvers import clear_url_caches
 from django.test import TestCase as DjangoTestCase
 
@@ -134,7 +135,7 @@ class StoppableWSGIServer(ThreadingMixIn, HTTPServer):
         try:
             HTTPServer.server_bind(self)
         except Exception, e:
-            raise WSGIServerException, e
+            raise socket.error, e
         self.setup_environ()
         self.socket.settimeout(1)
 
@@ -187,7 +188,7 @@ class TestServerThread(threading.Thread):
             #httpd = basehttp.WSGIServer(server_address, basehttp.WSGIRequestHandler)
             httpd.set_app(handler)
             self.started.set()
-        except WSGIServerException, e:
+        except socket.error, e:
             self.error = e
             self.started.set()
             return

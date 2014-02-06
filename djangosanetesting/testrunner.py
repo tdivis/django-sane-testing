@@ -169,6 +169,12 @@ def _get_options():
     manager = nose.core.DefaultPluginManager()
     config = nose.core.Config(env=os.environ, files=cfg_files, plugins=manager)
     options = config.getParser().option_list
+
+    # remove short option "-p" for "--plugins" because it collides with django's "-p" for "--patternt"
+    for option in options:
+        if '-p' in option._short_opts:
+            option._short_opts.remove('-p')
+
     django_opts = [opt.dest for opt in BaseCommand.option_list] + ['version']
     return tuple(o for o in options if o.dest not in django_opts and
                                        o.action != 'help')
