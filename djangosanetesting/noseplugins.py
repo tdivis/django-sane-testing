@@ -14,7 +14,7 @@ import unittest
 from django.core.management import call_command
 from django.core.servers.basehttp import  WSGIRequestHandler
 
-from django.core.urlresolvers import clear_url_caches
+from django.core.urlresolvers import clear_url_caches, set_urlconf
 from django.test import TestCase as DjangoTestCase
 
 import nose
@@ -496,6 +496,7 @@ class DjangoPlugin(Plugin):
 
         # clear URLs if needed
         if hasattr(test_case, 'urls'):
+            set_urlconf(None)
             test_case._old_root_urlconf = settings.ROOT_URLCONF
             settings.ROOT_URLCONF = test_case.urls
             clear_url_caches()
@@ -548,6 +549,7 @@ class DjangoPlugin(Plugin):
         from django.conf import settings
 
         if hasattr(test_case, '_old_root_urlconf'):
+            set_urlconf(None)
             settings.ROOT_URLCONF = test_case._old_root_urlconf
             clear_url_caches()
         flush_cache(test)
