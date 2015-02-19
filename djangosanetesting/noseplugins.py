@@ -625,7 +625,6 @@ class DjangoPlugin(Plugin):
                     connection.creation.create_test_db()
                     database_created = True
 
-                connection.features.confirm()
                 self.test_database_created = True
 
         if database_created:
