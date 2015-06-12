@@ -193,3 +193,6 @@ def get_server_handler():
     return handler
 
 
+def seq_unique(seq):
+    seen = set()
+    return [item for item in seq if not (item in seen or seen.add(item))]

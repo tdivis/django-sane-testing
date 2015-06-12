@@ -2,6 +2,8 @@
 NoseContextStack to hande important information while nosetests traverses (DFS) through 
 packages, modules, test_cases classess, test methods and test functions.
 """
+from djangosanetesting.utils import seq_unique
+
 
 class ContextInfo(object):
     """ Information about one node in traversed tree """
@@ -77,9 +79,9 @@ class ContextStack(list):
 
     def get_unloaded_fixtures(self):
         ''' Return set of all fixtures, which are not loaded (so not including items with fixtures_loaded == True) '''
-        return set([fixture
-                    for context in self if not context.fixtures_loaded and context.fixtures
-                    for fixture in context.fixtures])
+        return seq_unique([fixture
+                           for context in self if not context.fixtures_loaded and context.fixtures
+                           for fixture in context.fixtures])
 
     def is_transaction(self):
         ''' Returns whether current state should be in transaction (this is used to check, whether transaction 

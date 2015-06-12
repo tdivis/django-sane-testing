@@ -29,6 +29,7 @@ from djangosanetesting.utils import (
     get_databases, get_live_server_path,
     get_server_handler,
     DEFAULT_LIVE_SERVER_ADDRESS, DEFAULT_LIVE_SERVER_PORT,
+    seq_unique,
 )
 
 
@@ -596,7 +597,9 @@ class DjangoPlugin(Plugin):
         return databases
 
     def _prepare_tests_fixtures(self, test, commit):
-        fixtures = self.stack.get_unloaded_fixtures().union(getattr_test_meth(test, 'fixtures', []))
+        fixtures = self.stack.get_unloaded_fixtures()
+        fixtures.extend(getattr_test_meth(test, 'fixtures', []))
+        fixtures = seq_unique(fixtures)
         if fixtures:
             for db in self._get_tests_databases(getattr_test(test, 'multi_db')):
                 call_command('loaddata', *fixtures,
